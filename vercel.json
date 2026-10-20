@@ -3,5 +3,8 @@
   "framework": null,
   "buildCommand": "",
   "installCommand": "",
-  "outputDirectory": "site"
+  "outputDirectory": "site",
+  "rewrites": [
+    { "source": "/wp-admin/admin-ajax.php", "destination": "/api/elementor-form" }
+  ]
 }
