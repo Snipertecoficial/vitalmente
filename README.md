@@ -38,7 +38,7 @@ cd tests && LOCAL=http://localhost:8081 node visual.mjs && LOCAL=http://localhos
 
 ## Vercel
 
-Configure **Root Directory = `site`**, sem build command.
+O `vercel.json` publica a pasta `site/` (sem build). Nada a configurar no painel.
 
 ## Pendente
 
