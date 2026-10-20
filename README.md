@@ -42,4 +42,4 @@ O `vercel.json` publica a pasta `site/` (sem build). Nada a configurar no painel
 
 ## Pendente
 
-O envio dos formulários ainda depende do WordPress (`admin-ajax.php`). Ver `docs/pendencias-fase-formularios.md`. Não apontar o domínio para o novo deploy antes dessa fase.
+O envio dos formulários é **simulado**: `/wp-admin/admin-ajax.php` é atendido por `api/elementor-form.mjs`, que só devolve sucesso (popup "Teste enviado com sucesso"; mensagem inline em teste-tea, experiencia-emocionais e adi-r). Nada é enviado nem salvo. Conferir com `BASE=https://vitalmente-gilt.vercel.app node tests/submit.mjs`. Ao ligar o envio real: o reCAPTCHA v3 só aceita o domínio vitallmente.com.br (no vercel.app o token é inválido). Ver `docs/pendencias-fase-formularios.md`. Não apontar o domínio para o novo deploy antes dessa fase.
