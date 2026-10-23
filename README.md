@@ -47,4 +47,6 @@ O `vercel.json` publica a pasta `site/` (sem build). Nada a configurar no painel
 - Chave: variável `RESEND_API_KEY` na Vercel (e no `.env` local, fora do git). Sem ela o envio é só simulado.
 - O cabeçalho `x-envio` da resposta diz `email` ou `simulado`.
 - Conferir: `BASE=https://vitalmente-gilt.vercel.app node tests/submit.mjs /teste-tdah/` (envia 1 e-mail real).
+- Layout do e-mail: `api/_relatorio.mjs`. Teste dos 20 relatórios: `node tests/relatorio.mjs` (prévias em `_scratch/relatorio/`).
+- Textos das perguntas: `api/perguntas.json`, gerado por `LOCAL=http://localhost:8081 node tests/extrair_perguntas.mjs` — rodar de novo se um teste mudar.
 - O reCAPTCHA v3 só aceita o domínio vitallmente.com.br; o servidor ainda não valida o token.
