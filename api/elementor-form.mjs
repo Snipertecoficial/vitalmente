@@ -1,3 +1,5 @@
+import PERGUNTAS from './perguntas.json' with { type: 'json' };
+
 // Substitui o /wp-admin/admin-ajax.php do WordPress para o envio dos formulários Elementor.
 // Com RESEND_API_KEY definida, envia cada teste por e-mail para a clínica; sem ela, só simula o sucesso.
 
@@ -65,57 +67,79 @@ export function resposta(campos) {
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const COR = '#5E4352'; // --e-global-color-primary do site
 const PACIENTE = ['name', 'cpf', 'cel', 'accept'];
+const CODIGO = 'field_5bb3790'; // campo oculto com o código interno do teste ("tdah", "vineland-3")
 
 // "total_respondidas" → "Total respondidas"; true/false → Sim/Não
 const rotulo = k => (k.charAt(0).toUpperCase() + k.slice(1)).replace(/_/g, ' ');
-const valor = v => (v === true ? 'Sim' : v === false ? 'Não' : v === null || v === '' ? '—' : String(v));
-const ehObjeto = v => v && typeof v === 'object';
+const valor = v => (v === true ? 'Sim' : v === false ? 'Não' : v === null || v === '' ? '—' : Array.isArray(v) ? v.join(', ') : String(v));
+const ehObjeto = v => v && typeof v === 'object' && !Array.isArray(v);
 const json = v => { try { const o = JSON.parse(v); return ehObjeto(o) ? o : null; } catch { return null; } };
 
+// Pergunta e alternativa reais do teste (api/perguntas.json, gerado por tests/extrair_perguntas.mjs).
+const pergunta = (mapa, k) => mapa[k]?.p || rotulo(k);
+const resposta1 = (mapa, k, v) => {
+  const o = mapa[k]?.o;
+  if (!o || v === null || v === '' || typeof v === 'boolean') return valor(v);
+  const traduz = x => o[String(x).trim()] ?? String(x).trim();
+  if (Array.isArray(v)) return v.map(traduz).join(', ');
+  return String(v).split(' | ').map(traduz).join(' | '); // ex.: ADOS-2 "0 | observação"
+};
+
 const linha = (k, v, destaque) =>
-  `<tr><td style="padding:8px 12px;border-bottom:1px solid #eee;color:#7A7A7A;width:40%;vertical-align:top">${esc(k)}</td>` +
-  `<td style="padding:8px 12px;border-bottom:1px solid #eee;color:#343536;${destaque ? 'font-weight:bold;' : ''}white-space:pre-wrap">${esc(v)}</td></tr>`;
+  `<tr><td style="padding:8px 12px;border-bottom:1px solid #eee;color:#7A7A7A;width:45%;vertical-align:top">${esc(k)}</td>` +
+  `<td style="padding:8px 12px;border-bottom:1px solid #eee;color:#343536;vertical-align:top;${destaque ? 'font-weight:bold;' : ''}white-space:pre-wrap">${esc(v)}</td></tr>`;
 const tabela = rows => `<table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;font-size:14px">${rows.join('')}</table>`;
 const secao = (titulo, corpo) =>
   `<h3 style="margin:28px 0 8px;font-size:15px;color:${COR};text-transform:uppercase;letter-spacing:.5px">${esc(titulo)}</h3>${corpo}`;
+const compacto = v => Object.entries(v).map(([a, b]) => `${rotulo(a)}: ${ehObjeto(b) ? compacto(b) : valor(b)}`).join(' · ');
 
-// Resultado em JSON: campos simples viram o resumo (em destaque); objetos aninhados viram tabelas próprias.
-function resultadoHtml(obj) {
-  const simples = Object.entries(obj).filter(([, v]) => !ehObjeto(v));
-  const blocos = Object.entries(obj).filter(([kk, v]) => ehObjeto(v) && !/^\d+$/.test(kk));
-  const numerados = Object.entries(obj).filter(([kk, v]) => ehObjeto(v) && /^\d+$/.test(kk)); // ex.: linhas do teste de atenção
-  let html = simples.length ? secao('Resumo do resultado', tabela(simples.map(([k, v]) => linha(rotulo(k), valor(v), true)))) : '';
-  if (numerados.length) html += secao('Detalhamento', tabela(numerados.map(([kk, v]) =>
-    linha(`Item ${kk}`, Object.entries(v).map(([a, b]) => `${rotulo(a)}: ${ehObjeto(b) ? Object.entries(b).map(([x, y]) => `${rotulo(x)} ${valor(y)}`).join(', ') : valor(b)}`).join(' · ')))));
+// Resultado em JSON, recursivo: no topo, totais/escores viram o resumo (em destaque) e respostas viram
+// "pergunta → alternativa"; cada grupo aninhado (ex.: Vineland › Comunicação) vira uma seção própria.
+function resultadoHtml(obj, mapa, titulo = '') {
+  const ents = Object.entries(obj);
+  const folhas = ents.filter(([, v]) => !ehObjeto(v));
+  const numerados = ents.filter(([k, v]) => ehObjeto(v) && /^\d+$/.test(k)); // ex.: linhas do teste de atenção
+  const blocos = ents.filter(([k, v]) => ehObjeto(v) && !/^\d+$/.test(k));
+  const resp = ([k, v]) => linha(pergunta(mapa, k), resposta1(mapa, k, v));
+  let html = '';
+  if (!titulo) {
+    const resumo = folhas.filter(([k]) => !(k in mapa));
+    const respostas = folhas.filter(([k]) => k in mapa);
+    if (resumo.length) html += secao('Resumo do resultado', tabela(resumo.map(([k, v]) => linha(rotulo(k), valor(v), true))));
+    if (respostas.length) html += secao('Respostas', tabela(respostas.map(resp)));
+  } else if (folhas.length) {
+    html += secao(titulo, tabela(folhas.map(([k, v]) => (k in mapa ? resp([k, v]) : linha(rotulo(k), valor(v), true)))));
+  }
+  if (numerados.length) html += secao(titulo ? `${titulo} › Detalhamento` : 'Detalhamento', tabela(numerados.map(([k, v]) => linha(`Item ${k}`, compacto(v)))));
   for (const [k, v] of blocos) {
-    const rows = Object.entries(v).map(([kk, vv]) =>
-      linha(rotulo(kk), ehObjeto(vv) ? Object.entries(vv).map(([a, b]) => `${rotulo(a)}: ${valor(b)}`).join(' · ') : valor(vv)));
-    html += secao(rotulo(k), tabela(rows.length ? rows : [linha('—', 'sem respostas')]));
+    const sub = !titulo || titulo === 'Respostas' ? rotulo(k) : `${titulo} › ${rotulo(k)}`;
+    html += Object.keys(v).length ? resultadoHtml(v, mapa, sub) : secao(sub, tabela([linha('—', 'sem respostas')]));
   }
   return html;
 }
 
 // Mesmo conteúdo das tabelas, em texto simples (versão sem HTML do e-mail).
-function textoResultado(obj, nivel = 0) {
+function textoResultado(obj, mapa, nivel = 0) {
   return Object.entries(obj).map(([k, v]) => ehObjeto(v)
-    ? `${'  '.repeat(nivel)}${/^\d+$/.test(k) ? `Item ${k}` : rotulo(k)}:\n${textoResultado(v, nivel + 1)}`
-    : `${'  '.repeat(nivel)}${rotulo(k)}: ${valor(v)}`).join('\n');
+    ? `${'  '.repeat(nivel)}${/^\d+$/.test(k) ? `Item ${k}` : rotulo(k)}:\n${textoResultado(v, mapa, nivel + 1)}`
+    : `${'  '.repeat(nivel)}${pergunta(mapa, k)}: ${resposta1(mapa, k, v)}`).join('\n');
 }
 
 export function montarEmail(campos) {
   const path = caminho(campos);
+  const mapa = PERGUNTAS[path] || {};
   const teste = TESTES[path] ? `Teste ${TESTES[path].replace(/^de /, '')}` : (campos.referer_title || path);
   const nome = campos['form_fields[name]'] || 'Paciente sem nome';
   const quando = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' });
   const fields = Object.entries(campos).filter(([k]) => k.startsWith('form_fields[')).map(([k, v]) => [k.slice(12, -1).replace(/\]\[.*$/, ''), v]);
   const pac = PACIENTE.filter(id => fields.some(([f]) => f === id))
     .map(id => { const v = fields.find(([f]) => f === id)[1]; return [ROTULOS[id], id === 'accept' ? (v ? 'Sim' : 'Não') : v]; });
-  const outros = fields.filter(([f]) => !PACIENTE.includes(f) && fields.find(([g]) => g === f)[1] !== '');
+  const outros = fields.filter(([f, v]) => !PACIENTE.includes(f) && f !== CODIGO && v !== '');
 
   let resultado = '';
   for (const [id, v] of outros) {
     const o = json(v);
-    if (o) resultado += resultadoHtml(o);
+    if (o) resultado += resultadoHtml(o, mapa);
     else resultado += secao(rotulo(id), tabela([linha(rotulo(id), v)]));
   }
   if (!resultado) resultado = secao('Resultado', `<p style="color:#7A7A7A">Nenhum resultado foi preenchido neste envio.</p>`);
@@ -133,11 +157,11 @@ export function montarEmail(campos) {
 ${secao('Dados do paciente', tabela(pac.map(([k, v]) => linha(k, v))))}
 ${resultado}
 </td></tr>
-<tr><td style="padding:16px 28px;background:#faf8f9;color:#7A7A7A;font-size:12px">Enviado automaticamente pelo site · <a href="${esc(campos.referrer || '')}" style="color:${COR}">${esc(path)}</a><br>Conteúdo confidencial: dados de saúde do paciente.</td></tr>
+<tr><td style="padding:16px 28px;background:#faf8f9;color:#7A7A7A;font-size:12px">Enviado automaticamente pelo site${campos[`form_fields[${CODIGO}]`] ? ` · código ${esc(campos[`form_fields[${CODIGO}]`])}` : ''} · <a href="${esc(campos.referrer || '')}" style="color:${COR}">${esc(path)}</a><br>Conteúdo confidencial: dados de saúde do paciente.</td></tr>
 </table></td></tr></table></body></html>`;
 
   const text = [`${teste} — ${nome}`, `Recebido em ${quando}`, '', ...pac.map(([k, v]) => `${k}: ${v}`), '',
-    ...outros.map(([id, v]) => (json(v) ? textoResultado(json(v)) : `${rotulo(id)}: ${v}`)), '', `Página: ${campos.referrer || path}`].join('\n');
+    ...outros.map(([id, v]) => (json(v) ? textoResultado(json(v), mapa) : `${rotulo(id)}: ${v}`)), '', `Página: ${campos.referrer || path}`].join('\n');
   return { subject: `[Vitallmente] ${teste} — ${nome}`, html, text };
 }
 
