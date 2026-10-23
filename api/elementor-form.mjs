@@ -86,13 +86,20 @@ function resultadoHtml(obj) {
   const numerados = Object.entries(obj).filter(([kk, v]) => ehObjeto(v) && /^\d+$/.test(kk)); // ex.: linhas do teste de atenção
   let html = simples.length ? secao('Resumo do resultado', tabela(simples.map(([k, v]) => linha(rotulo(k), valor(v), true)))) : '';
   if (numerados.length) html += secao('Detalhamento', tabela(numerados.map(([kk, v]) =>
-    linha(`Item ${kk}`, Object.entries(v).map(([a, b]) => `${rotulo(a)}: ${ehObjeto(b) ? JSON.stringify(b) : valor(b)}`).join(' · ')))));
+    linha(`Item ${kk}`, Object.entries(v).map(([a, b]) => `${rotulo(a)}: ${ehObjeto(b) ? Object.entries(b).map(([x, y]) => `${rotulo(x)} ${valor(y)}`).join(', ') : valor(b)}`).join(' · ')))));
   for (const [k, v] of blocos) {
     const rows = Object.entries(v).map(([kk, vv]) =>
       linha(rotulo(kk), ehObjeto(vv) ? Object.entries(vv).map(([a, b]) => `${rotulo(a)}: ${valor(b)}`).join(' · ') : valor(vv)));
     html += secao(rotulo(k), tabela(rows.length ? rows : [linha('—', 'sem respostas')]));
   }
   return html;
+}
+
+// Mesmo conteúdo das tabelas, em texto simples (versão sem HTML do e-mail).
+function textoResultado(obj, nivel = 0) {
+  return Object.entries(obj).map(([k, v]) => ehObjeto(v)
+    ? `${'  '.repeat(nivel)}${/^\d+$/.test(k) ? `Item ${k}` : rotulo(k)}:\n${textoResultado(v, nivel + 1)}`
+    : `${'  '.repeat(nivel)}${rotulo(k)}: ${valor(v)}`).join('\n');
 }
 
 export function montarEmail(campos) {
@@ -105,10 +112,10 @@ export function montarEmail(campos) {
     .map(id => { const v = fields.find(([f]) => f === id)[1]; return [ROTULOS[id], id === 'accept' ? (v ? 'Sim' : 'Não') : v]; });
   const outros = fields.filter(([f]) => !PACIENTE.includes(f) && fields.find(([g]) => g === f)[1] !== '');
 
-  let resultado = '', brutos = [];
+  let resultado = '';
   for (const [id, v] of outros) {
     const o = json(v);
-    if (o) { resultado += resultadoHtml(o); brutos.push([id, JSON.stringify(o, null, 2)]); }
+    if (o) resultado += resultadoHtml(o);
     else resultado += secao(rotulo(id), tabela([linha(rotulo(id), v)]));
   }
   if (!resultado) resultado = secao('Resultado', `<p style="color:#7A7A7A">Nenhum resultado foi preenchido neste envio.</p>`);
@@ -125,13 +132,12 @@ export function montarEmail(campos) {
 <div style="font-size:16px;color:${COR};margin-top:4px">${esc(nome)}</div>
 ${secao('Dados do paciente', tabela(pac.map(([k, v]) => linha(k, v))))}
 ${resultado}
-${brutos.map(([id, j]) => secao(`Dados brutos (${id})`, `<pre style="background:#f7f7f7;border:1px solid #eee;padding:12px;font-size:12px;white-space:pre-wrap;word-break:break-all">${esc(j)}</pre>`)).join('')}
 </td></tr>
 <tr><td style="padding:16px 28px;background:#faf8f9;color:#7A7A7A;font-size:12px">Enviado automaticamente pelo site · <a href="${esc(campos.referrer || '')}" style="color:${COR}">${esc(path)}</a><br>Conteúdo confidencial: dados de saúde do paciente.</td></tr>
 </table></td></tr></table></body></html>`;
 
   const text = [`${teste} — ${nome}`, `Recebido em ${quando}`, '', ...pac.map(([k, v]) => `${k}: ${v}`), '',
-    ...outros.map(([id, v]) => `${rotulo(id)}:\n${json(v) ? JSON.stringify(json(v), null, 2) : v}`), '', `Página: ${campos.referrer || path}`].join('\n');
+    ...outros.map(([id, v]) => (json(v) ? textoResultado(json(v)) : `${rotulo(id)}: ${v}`)), '', `Página: ${campos.referrer || path}`].join('\n');
   return { subject: `[Vitallmente] ${teste} — ${nome}`, html, text };
 }
 
