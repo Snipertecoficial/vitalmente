@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Cada página local tem exatamente os mesmos <a href> do original, e todo link interno resolve em site/."""
-import html, pathlib, re, sys, urllib.error, urllib.parse, urllib.request
+import html, importlib.util, pathlib, re, sys, urllib.error, urllib.parse, urllib.request
 ROOT = pathlib.Path(__file__).resolve().parent.parent
+_spec = importlib.util.spec_from_file_location("mirror", ROOT / "tools/mirror.py")
+mirror = importlib.util.module_from_spec(_spec); _spec.loader.exec_module(mirror)
 RAW, SITE = ROOT / "_scratch/original", ROOT / "site"
 A_HREF = re.compile(r"<a\b[^>]*?\bhref\s*=\s*([\"'])(.*?)\1", re.S | re.I)
 DOMAIN = re.compile(r"^(?:https?:)?//(?:www\.)?vitallmente\.com\.br(?=/|$)")
@@ -29,7 +31,7 @@ fail = 0
 for url in (ROOT / "tools/pages.txt").read_text().split():
     path = urllib.parse.urlsplit(url).path
     p = path.strip("/")
-    orig = hrefs((RAW / f"{p or 'home'}.html").read_text(encoding="utf-8"))
+    orig = hrefs(mirror.personalizar((RAW / f"{p or 'home'}.html").read_text(encoding="utf-8")))  # trocas intencionais
     local = hrefs((SITE / (f"{p}/index.html" if p else "index.html")).read_text(encoding="utf-8"))
     if orig != local:
         fail += 1

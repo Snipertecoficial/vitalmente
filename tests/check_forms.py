@@ -16,7 +16,7 @@ fail = 0
 for slug in FORM_PAGES:
     raw = (ROOT / "_scratch/original" / f"{slug}.html").read_text(encoding="utf-8")
     local = (ROOT / "site" / slug / "index.html").read_text(encoding="utf-8")
-    a, b = [mirror.rewrite(f) for f in FORM.findall(raw)], FORM.findall(local)
+    a, b = [mirror.personalizar(mirror.rewrite(f)) for f in FORM.findall(raw)], FORM.findall(local)
     total = re.findall(r"TOTAL_PERGUNTAS\s*=\s*(\d+)", b[0]) if b else []
     ok = bool(a) and a == b
     fail += not ok

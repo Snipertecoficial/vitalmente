@@ -31,4 +31,8 @@ with tempfile.TemporaryDirectory() as d:
         m.main(); raise AssertionError("main() deveria falhar sem requests.txt")
     except SystemExit as e:
         assert "requests.txt" in str(e)
+assert m.personalizar('href="https://api.whatsapp.com/send?phone=5511950698711"') == 'href="https://api.whatsapp.com/send?phone=5511917738711"'
+assert m.personalizar("https://wa.me//5511945443760?text=x") == "https://wa.me//5511917738711?text=x"
+assert m.personalizar(">11 91399-8711<") == ">11 91773-8711<" and m.personalizar(">11 97290 8711<") == ">11 91773 8711<"
+assert m.personalizar("5511917738711") == "5511917738711"
 print("test_mirror OK")

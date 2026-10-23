@@ -19,6 +19,16 @@ WP_HEAD = re.compile(r"<link[^>]+(?:wp-json|xmlrpc\.php|wlwmanifest|rel=[\"']sho
 CSS_URL = re.compile(r"url\(\s*['\"]?([^'\")]+)['\"]?\s*\)|@import\s+['\"]([^'\"]+)['\"]")
 SITEMAP_XSL = "/wp-content/plugins/wordpress-seo/css/main-sitemap.xsl"  # referenciado pelos sitemaps
 SEO_FILES = ["robots.txt", "sitemap_index.xml", "page-sitemap.xml", "main-sitemap.xsl"]
+# Personalizações pedidas pelo cliente (únicas diferenças intencionais em relação ao original).
+# 2026-10-22: todos os WhatsApp passam a ser o 11 91773-8711.
+TROCAS = {
+    "5511950698711": "5511917738711",
+    "5511945443760": "5511917738711",
+    "5511913998711": "5511917738711",
+    "5511991148332": "5511917738711",
+    "11 91399-8711": "11 91773-8711",
+    "11 97290 8711": "11 91773 8711",
+}
 
 
 def fetch(url):
@@ -43,6 +53,12 @@ def rewrite_html(text):
         out += [rewrite(text[last:m.start()]), m.group(0)]
         last = m.end()
     return "".join(out) + rewrite(text[last:])
+
+
+def personalizar(text):
+    for old, new in TROCAS.items():
+        text = text.replace(old, new)
+    return text
 
 
 def page_file(path):
@@ -89,7 +105,7 @@ def main():
         raw = fetch(url).decode("utf-8")
         (RAW / f"{path.strip('/') or 'home'}.html").write_text(raw, encoding="utf-8")
         queue |= assets_in(raw)
-        save(page_file(path), WP_HEAD.sub("", rewrite_html(raw)).encode("utf-8"))
+        save(page_file(path), personalizar(WP_HEAD.sub("", rewrite_html(raw))).encode("utf-8"))
     done = set()
     while queue:
         path = queue.pop()
