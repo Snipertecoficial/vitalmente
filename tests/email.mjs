@@ -3,7 +3,7 @@
 
 import { chromium } from 'playwright';
 import fs from 'node:fs';
-import { blockTracking } from './lib.mjs';
+import { blockTracking, FORM_PATHS } from './lib.mjs';
 import { lerCampos, montarEmail } from '../api/elementor-form.mjs';
 const src = fs.readFileSync('extrair_perguntas.mjs', 'utf8');
 const preencher = eval(src.match(/const preencher = (\(\) => \{[\s\S]*?\n\});/)[1]);
@@ -12,12 +12,14 @@ let corpo = null;
 await ctx.route('**/wp-admin/admin-ajax.php', async r => { corpo = await lerCampos(r.request().postDataBuffer(), r.request().headers()['content-type']); return r.fulfill({ json: { success: true, data: { message: '', data: {} } } }); });
 await ctx.route('https://api.whatsapp.com/**', r => r.fulfill({ status: 204 }));
 const page = await ctx.newPage(); let falhas = 0;
-for (const p of ['/teste-gravidade-depressiva/', '/teste-tdah/', '/adi-r/', '/anamnese-1/', '/avaliacao-comportamento/', '/vineland-3/', '/teste-atencao/']) {
+fs.mkdirSync('../_scratch/envios', { recursive: true });
+for (const p of FORM_PATHS) {
   corpo = null;
   await page.goto('http://localhost:8081' + p, { waitUntil: 'networkidle' });
   await page.evaluate(preencher);
   await page.evaluate(() => { const f = document.querySelector('form.elementor-form'); f.querySelector('[name="form_fields[name]"]').value = 'Paciente Exemplo'; jQuery(f).trigger('submit'); });
   for (let i = 0; i < 50 && !corpo; i++) await page.waitForTimeout(100);
+  fs.writeFileSync(`../_scratch/envios/${p.replace(/\//g, '')}.json`, JSON.stringify(corpo, null, 1));
   const e = montarEmail(corpo);
   const slug = p.replace(/\//g, '');
   fs.writeFileSync(`../_scratch/email-${slug}.html`, e.html);

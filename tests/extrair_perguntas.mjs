@@ -17,8 +17,15 @@ const extrair = () => {
   const textoOpcao = e => {
     const l = e.closest('label') || (e.id && f.querySelector(`label[for="${CSS.escape(e.id)}"]`));
     const t = limpa(l ? l.innerText : (e.nextSibling?.textContent || ''));
-    // grades: o rótulo da célula é vazio e a alternativa é a descrição da linha (ex.: ADI-R)
-    return t || limpa(e.closest('[class*="row"]')?.querySelector('[class*="desc"]')?.innerText || '') || e.value;
+    if (t && t !== e.value) return t;
+    // escalas em tabela: o significado está no rótulo da célula (data-label) ou no cabeçalho da coluna
+    const cel = e.closest('td,th');
+    const dl = limpa(e.closest('[data-label]')?.dataset.label || '').replace(/:$/, '');
+    if (dl && cel) return dl;
+    const tab = e.closest('table');
+    if (cel && tab) { const cab = (tab.tHead || tab).rows[0]?.cells[cel.cellIndex]; if (cab && limpa(cab.innerText)) return limpa(cab.innerText); }
+    // grades em div: a alternativa é a descrição da linha (ex.: ADI-R)
+    return limpa(e.closest('[class*="row"]')?.querySelector('[class*="desc"]')?.innerText || '') || t || e.value;
   };
   const tituloCard = card => {
     for (const sel of ['h1,h2,h3,h4,h5', '[class*="title"]', '[class*="q-text"]', 'label']) {
@@ -70,9 +77,16 @@ const extrair = () => {
     const base = nome.replace(/_texto$/, '');
     if (base !== nome && out[base]?.p) m.p = `${out[base].p} (observações)`;
   }
+  // títulos das seções (data-sec="Secao_D" → "D. Comportamentos Repetitivos…"); marcados com s: 1
+  for (const sec of new Set([...f.querySelectorAll('[data-sec]')].map(e => e.dataset.sec))) {
+    const el = f.querySelector(`[data-sec="${CSS.escape(sec)}"]`);
+    const caixa = el.closest('[class*="section"]:not([data-id])') || el.parentElement;
+    const t = caixa?.querySelector('[class*="section-title"],h2,h3');
+    if (t && limpa(t.innerText) && !out[sec]) out[sec] = { p: limpa(t.innerText), s: 1 };
+  }
   // perguntas repetidas no mesmo teste (ex.: idade_anos / idade_meses; q1_a…q1_d): acrescenta o sufixo do código
   const porTexto = {};
-  for (const [nome, m] of Object.entries(out)) (porTexto[m.p] ||= []).push(nome);
+  for (const [nome, m] of Object.entries(out)) if (!m.s) (porTexto[m.p] ||= []).push(nome);
   for (const nomes of Object.values(porTexto)) if (nomes.length > 1) nomes.forEach(n => { const suf = n.split('_').pop(); if (suf !== n) out[n].p += ` (${suf})`; });
   return out;
 };
@@ -83,7 +97,13 @@ const preencher = () => {
   const vistos = new Set();
   f.querySelectorAll('input,select,textarea').forEach(e => {
     if (!e.name || e.name.startsWith('form_fields[') || e.type === 'hidden') return;
-    if ((e.type === 'radio' || e.type === 'checkbox') && !vistos.has(e.name)) { vistos.add(e.name); e.click(); }
+    if ((e.type === 'radio' || e.type === 'checkbox') && !vistos.has(e.name)) {
+      // alternativa variada (determinística por nome) para o resultado parecer um envio real
+      vistos.add(e.name);
+      const grupo = [...f.querySelectorAll(`[name="${CSS.escape(e.name)}"]`)];
+      const h = [...e.name].reduce((a, c) => a + c.charCodeAt(0), 0);
+      grupo[h % grupo.length].click();
+    }
     else if (e.tagName === 'SELECT' && e.options.length > 1) e.value = e.options[1].value;
     else if (['text', 'number', 'textarea', 'TEXTAREA'].includes(e.type || e.tagName)) e.value = '1';
     ['input', 'change'].forEach(t => e.dispatchEvent(new Event(t, { bubbles: true })));
@@ -105,9 +125,11 @@ for (const p of FORM_PATHS) {
   const resultados = await page.evaluate(preencher);
   const folhas = resultados.flatMap(r => { try { return chaves(JSON.parse(r)); } catch { return []; } });
   const respostas = folhas.filter(([k]) => k in mapa);
+  respostas.forEach(([k]) => (mapa[k].r = 1)); // aparece no resultado: entra na lista de não respondidas se faltar
   const comOpcao = respostas.filter(([k, v]) => !mapa[k].o || String(v) in mapa[k].o);
+  const numericas = respostas.filter(([k, v]) => mapa[k].o && /^\d+[a-z]?$/.test(mapa[k].o[String(v)] || ''));
   const semPergunta = Object.values(mapa).filter(m => !m.p).length;
-  console.log(`${p.padEnd(44)} perguntas=${String(Object.keys(mapa).length).padStart(3)} sem_texto=${semPergunta} | resultado: ${respostas.length}/${folhas.length} chaves com pergunta, ${comOpcao.length}/${respostas.length} valores com alternativa`);
+  console.log(`${p.padEnd(44)} perguntas=${String(Object.keys(mapa).length).padStart(3)} sem_texto=${semPergunta} | resultado: ${respostas.length}/${folhas.length} chaves com pergunta, ${comOpcao.length}/${respostas.length} valores com alternativa, ${numericas.length} alternativas só numéricas`);
 }
 await browser.close();
 fs.writeFileSync(new URL('../api/perguntas.json', import.meta.url), JSON.stringify(todas));
