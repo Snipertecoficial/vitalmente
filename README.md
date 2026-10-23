@@ -40,6 +40,11 @@ cd tests && LOCAL=http://localhost:8081 node visual.mjs && LOCAL=http://localhos
 
 O `vercel.json` publica a pasta `site/` (sem build). Nada a configurar no painel.
 
-## Pendente
+## Envio dos formulários
 
-O envio dos formulários é **simulado**: `/wp-admin/admin-ajax.php` é atendido por `api/elementor-form.mjs`, que só devolve sucesso (popup "Teste enviado com sucesso"; mensagem inline em teste-tea, experiencia-emocionais e adi-r). Nada é enviado nem salvo. Conferir com `BASE=https://vitalmente-gilt.vercel.app node tests/submit.mjs`. Ao ligar o envio real: o reCAPTCHA v3 só aceita o domínio vitallmente.com.br (no vercel.app o token é inválido). Ver `docs/pendencias-fase-formularios.md`. Não apontar o domínio para o novo deploy antes dessa fase.
+`/wp-admin/admin-ajax.php` é atendido por `api/elementor-form.mjs`: envia cada teste por e-mail (Resend) para vitallmenteclinica@gmail.com com assunto `[Vitallmente] Teste X — Nome`, mostra a confirmação (popup "Teste enviado com sucesso"; mensagem inline em teste-tea, experiencia-emocionais e adi-r) e redireciona ao WhatsApp 11 91773-8711.
+
+- Chave: variável `RESEND_API_KEY` na Vercel (e no `.env` local, fora do git). Sem ela o envio é só simulado.
+- O cabeçalho `x-envio` da resposta diz `email` ou `simulado`.
+- Conferir: `BASE=https://vitalmente-gilt.vercel.app node tests/submit.mjs /teste-tdah/` (envia 1 e-mail real).
+- O reCAPTCHA v3 só aceita o domínio vitallmente.com.br; o servidor ainda não valida o token.
