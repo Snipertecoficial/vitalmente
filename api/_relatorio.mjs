@@ -1,6 +1,7 @@
 // Monta o e-mail clínico de cada teste enviado: dados do paciente, resumo de pontuação,
 // cada pergunta com a alternativa escolhida (texto + valor) e as perguntas sem resposta.
 import PERGUNTAS from './perguntas.json' with { type: 'json' };
+import TAREFAS from './tarefas.json' with { type: 'json' };
 
 // Paleta da clínica (--e-global-color-primary do site) e apoio.
 const C = { ameixa: '#5E4352', tinta: '#2B2A2E', grafite: '#6B6870', nevoa: '#F5F2F4', regua: '#E4DDE2', selo: '#EFE8EC', alerta: '#A4442B' };
@@ -96,24 +97,37 @@ function alternativa(mapa, k, v) {
   return { texto: textos.join(Array.isArray(v) ? ', ' : ' — '), valor: codigo };
 }
 
-// ---------- blocos de HTML (estilos inline: o Gmail descarta <style>) ----------
-const th = (t, alinha = 'left', largura = '') =>
-  `<th align="${alinha}" style="${largura ? `width:${largura};` : ''}padding:8px 12px;background:${C.nevoa};border-bottom:1px solid ${C.regua};font:bold 11px ${SANS};color:${C.grafite};text-transform:uppercase;letter-spacing:.6px">${esc(t)}</th>`;
-const td = (t, extra = '') => `<td style="padding:9px 12px;border-bottom:1px solid ${C.regua};font:14px/1.45 ${SANS};color:${C.tinta};vertical-align:top;${extra}">${t}</td>`;
-const selo = v => (v === '' ? '' : `<span style="display:inline-block;min-width:22px;padding:2px 7px;border-radius:10px;background:${C.selo};color:${C.ameixa};font:bold 13px ${SANS};text-align:center">${esc(v)}</span>`);
-const tabela = (cab, linhas) => `<table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin:0 0 4px">${cab ? `<tr>${cab}</tr>` : ''}${linhas.join('')}</table>`;
+// ---------- blocos de HTML ----------
+// Classes curtas num <style> (Gmail aceita) em vez de estilo repetido em cada célula: mantém o e-mail
+// abaixo dos ~102 KB em que o Gmail corta a mensagem ("Mensagem cortada").
+const CSS = `
+.t{width:100%;border-collapse:collapse;margin:0 0 4px}
+.h{padding:8px 12px;background:${C.nevoa};border-bottom:1px solid ${C.regua};font:bold 11px ${SANS};color:${C.grafite};text-transform:uppercase;letter-spacing:.6px;text-align:left}
+.c{padding:9px 12px;border-bottom:1px solid ${C.regua};font:14px/1.45 ${SANS};color:${C.tinta};vertical-align:top}
+.q{color:${C.grafite}}.b{font-weight:bold}.r{text-align:right}.m{text-align:center}.n{white-space:nowrap}.z{background:#FBFAFB}
+.s{display:inline-block;min-width:22px;padding:2px 7px;border-radius:10px;background:${C.selo};color:${C.ameixa};font:bold 13px ${SANS};text-align:center}
+.nt{margin:6px 0 0;font:12px/1.5 ${SANS};color:${C.grafite}}
+.f{display:inline-block;margin:0 3px 3px 0;padding:1px;border:1px solid ${C.regua};border-radius:3px;vertical-align:top;background:#fff}
+.fc{border:2px solid #2E7D4F;background:#E7F3EC}.fe{border:2px solid ${C.alerta};background:#F8E9E5}.fo{border:2px dashed #C77B2A}
+.op{display:inline-block;width:30%;margin:0 2% 8px 0;vertical-align:top;text-align:center;font:12px ${SANS};color:${C.grafite}}
+`;
+const th = (t, cls = '', largura = '') => `<th class="h ${cls}"${largura ? ` width="${largura}"` : ''}>${esc(t)}</th>`;
+const td = (t, cls = '') => `<td class="c ${cls}">${t}</td>`;
+const selo = v => (v === '' ? '' : `<span class="s">${esc(v)}</span>`);
+const tabela = (cab, linhas) => `<table class="t" cellspacing="0" cellpadding="0">${cab ? `<tr>${cab}</tr>` : ''}${linhas.join('')}</table>`;
+const zebra = i => (i % 2 ? ' class="z"' : '');
 const titulo = (t, nota = '') =>
   `<h3 style="margin:30px 0 10px;padding-bottom:6px;border-bottom:2px solid ${C.ameixa};font:bold 16px ${SERIF};color:${C.ameixa}">${esc(t)}${nota ? ` <span style="font:12px ${SANS};color:${C.grafite}">${esc(nota)}</span>` : ''}</h3>`;
 
 function tabelaRespostas(mapa, itens) {
   const linhas = itens.map(([k, v]) => ({ k, p: termo(k, mapa), ...alternativa(mapa, k, v) }));
   const comValor = linhas.some(l => l.valor !== '');
-  return tabela(th('Pergunta', 'left', comValor ? '48%' : '50%') + th('Resposta') + (comValor ? th('Valor', 'right', '60px') : ''),
-    linhas.map((l, i) => `<tr${i % 2 ? ` style="background:#FBFAFB"` : ''}>${td(esc(l.p), `color:${C.grafite}`)}${td(esc(l.texto), 'font-weight:bold')}${comValor ? td(selo(l.valor), 'text-align:right') : ''}</tr>`));
+  return tabela(th('Pergunta', '', comValor ? '48%' : '50%') + th('Resposta') + (comValor ? th('Valor', 'r', '60') : ''),
+    linhas.map((l, i) => `<tr${zebra(i)}>${td(esc(l.p), 'q')}${td(esc(l.texto), 'b')}${comValor ? td(selo(l.valor), 'r') : ''}</tr>`));
 }
 
 function tabelaIndicadores(itens) {
-  return tabela('', itens.map(([k, v]) => `<tr>${td(esc(termo(k)), `color:${C.grafite};width:55%`)}${td(esc(formata(k, v)), 'font-weight:bold')}</tr>`));
+  return tabela('', itens.map(([k, v]) => `<tr>${td(esc(termo(k)), 'q')}${td(esc(formata(k, v)), 'b')}</tr>`));
 }
 
 // Lista de objetos com as mesmas chaves (linhas da Atenção, tarefas da Torre, sequência do CPT) → matriz.
@@ -122,10 +136,64 @@ function matriz(linhas) {
   const cols = Object.keys(ents[0][1]);
   const rotuloLinha = !Array.isArray(linhas);
   const nota = cols.some(c => /marcadas|alvos_nao/.test(c) && c !== 'placas_marcadas')
-    ? `<p style="margin:6px 0 0;font:12px ${SANS};color:${C.grafite}">Posição = ordem da figura na linha, da esquerda para a direita (1ª, 2ª, 3ª…).</p>` : '';
-  return tabela((rotuloLinha ? th('') : '') + cols.map(c => th(termo(c), 'center')).join(''),
-    ents.map(([k, v], i) => `<tr${i % 2 ? ` style="background:#FBFAFB"` : ''}>${rotuloLinha ? td(esc(termo(k)), `color:${C.grafite};white-space:nowrap`) : ''}${cols.map(c => td(esc(formata(c, v[c])), 'text-align:center')).join('')}</tr>`)) + nota;
+    ? `<p class="nt">Posição = ordem da figura na linha, da esquerda para a direita (1ª, 2ª, 3ª…).</p>` : '';
+  return tabela((rotuloLinha ? th('') : '') + cols.map(c => th(termo(c), 'm')).join(''),
+    ents.map(([k, v], i) => `<tr${zebra(i)}>${rotuloLinha ? td(esc(termo(k)), 'q n') : ''}${cols.map(c => td(esc(formata(c, v[c])), 'm')).join('')}</tr>`)) + nota;
 }
+
+// ---------- tarefas visuais: a instrução, o alvo e cada figura com a marcação do paciente ----------
+const LEGENDA = `<p class="nt"><span class="f fc">&nbsp;&nbsp;&nbsp;</span> marcou e era alvo &nbsp; <span class="f fe">&nbsp;&nbsp;&nbsp;</span> marcou e não era alvo &nbsp; <span class="f fo">&nbsp;&nbsp;&nbsp;</span> era alvo e não marcou &nbsp; <span class="f">&nbsp;&nbsp;&nbsp;</span> não marcou (correto)</p>`;
+
+function gradeVisual(meta, det, base, tam) {
+  const marcadas = new Set([...(det.marcadas_certas || []), ...(det.marcadas_erradas || []), ...(det.marcadas || []),
+    ...(det.placas_marcadas || []).map(n => meta.numeros.indexOf(n) + 1)]);
+  const alvos = new Set(meta.alvos);
+  const fig = (src, i) => {
+    const pos = i + 1, m = marcadas.has(pos), a = alvos.has(pos);
+    const cls = m && a ? 'fc' : m ? 'fe' : a ? 'fo' : '';
+    return `<img class="f ${cls}" src="${base}${src}" width="${tam}" height="${tam}" alt="${pos}" title="${pos}ª">`;
+  };
+  const alvo = meta.alvo
+    ? `<td class="c q" width="70" style="text-align:center"><div style="font:bold 10px ${SANS};text-transform:uppercase">Alvo</div><img src="${base}${meta.alvo}" width="${meta.alvo.includes('tr_alvo') ? 64 : tam + 12}" style="margin-top:4px;border:1px solid ${C.regua};border-radius:3px"></td>`
+    : '';
+  return `<table class="t" cellspacing="0" cellpadding="0"><tr>${alvo}<td class="c">${meta.itens.map(fig).join('')}</td></tr></table>`;
+}
+
+// Uma parte (campo de resultado) da tarefa: cada linha/tarefa com o que foi marcado e a contagem do teste.
+function tarefasVisuais(path, detalhe, base, campo, contagens) {
+  const t = TAREFAS[path];
+  const itens = Object.entries(t.itens).filter(([id, meta]) => (!meta.campo || meta.campo === campo) && detalhe[id]);
+  if (!itens.length) return [];
+  const out = [];
+  if (t.tipo === 'escolha') { // Raciocínio: matriz + 6 opções
+    out.push(titulo('Respostas por tarefa', `${itens.length} tarefas`));
+    for (const [id, meta] of itens) {
+      const esc1 = detalhe[id].escolhida || '';
+      const ok = esc1 && esc1 === meta.correta;
+      const ops = Object.entries(meta.opcoes).map(([op, src]) => {
+        const cls = op === meta.correta ? 'fc' : op === esc1 ? 'fe' : '';
+        const rot = op === esc1 && op === meta.correta ? '<b>Escolhida · correta</b>' : op === esc1 ? '<b>Escolhida</b>' : op === meta.correta ? 'Correta' : '&nbsp;';
+        return `<div class="op"><img class="f ${cls}" src="${base}${src}" width="150" style="width:100%;max-width:150px;height:auto"><br>${rot}</div>`;
+      }).join('');
+      out.push(`<div style="margin:22px 0 6px;font:bold 15px ${SANS};color:${C.tinta}">${esc(meta.titulo)} <span style="font:bold 13px ${SANS};color:${ok ? '#2E7D4F' : C.alerta}">· ${esc1 ? (ok ? 'acertou' : 'errou') : 'sem resposta'}</span></div>
+<div class="nt" style="margin:0 0 8px">${esc(meta.instrucao)}</div>
+<table class="t" cellspacing="0" cellpadding="0"><tr><td class="c m"><img src="${base}${meta.matriz}" width="260" style="width:100%;max-width:260px;height:auto;border:1px solid ${C.regua}"></td></tr><tr><td class="c">${ops}</td></tr></table>`);
+    }
+    return out;
+  }
+  // Atenção / Memória: uma faixa de figuras por questão/bloco, com a contagem do próprio teste
+  out.push(`<p class="nt" style="font-size:13px;color:${C.tinta}"><b>Instrução ao paciente:</b> ${esc(itens[0][1].instrucao)}</p>`);
+  const ref = itens[0][1].referencia; // Memória: a prancha que o paciente memorizou
+  if (ref) out.push(`<div style="margin:16px 0 4px;font:bold 14px ${SANS};color:${C.tinta}">Placas apresentadas para memorizar</div><img src="${base}${ref}" width="560" style="width:100%;max-width:560px;height:auto;border:1px solid ${C.regua};border-radius:4px">`);
+  for (const [id, meta] of itens) {
+    const c = contagens[id] || {};
+    const tam = meta.itens.length > 30 ? 26 : meta.numeros ? 52 : 34; // legível no Gmail; a faixa pode quebrar linha
+    out.push(`<div style="margin:18px 0 4px;font:bold 14px ${SANS};color:${C.tinta}">${esc(meta.titulo)} <span style="font:13px ${SANS};color:${C.grafite}">· ${c.acertos ?? '—'} acertos · ${c.erros ?? '—'} erros · ${c.omissoes ?? '—'} omissões</span></div>` + gradeVisual(meta, detalhe[id], base, tam));
+  }
+  out.push(LEGENDA);
+  return out;
+}
+
 const ehMatriz = v => {
   const xs = Array.isArray(v) ? v : ehObj(v) ? Object.values(v) : [];
   if (xs.length < 2 || !xs.every(x => ehObj(x) && Object.values(x).every(ehFolha))) return false;
@@ -177,7 +245,7 @@ export function montarEmail(campos, path) {
     .filter(([k, v]) => k.startsWith('form_fields[') && k !== 'form_fields[r_detalhe]' && json(v))
     .map(([k, v]) => [k.slice(12, -1), json(v)]);
   // o que foi marcado em cada linha/tarefa vira colunas extras da tabela de desempenho
-  for (const [, o] of resultados) for (const [k, extra] of Object.entries(detalhe)) if (ehObj(o[k])) Object.assign(o[k], extra);
+  if (!TAREFAS[path]) for (const [, o] of resultados) for (const [k, extra] of Object.entries(detalhe)) if (ehObj(o[k])) Object.assign(o[k], extra);
   const textosLivres = Object.entries(campos)
     .filter(([k, v]) => k.startsWith('form_fields[') && v !== '' && !json(v) && !['name', 'cpf', 'cel', 'accept', 'field_5bb3790', 'r_detalhe'].includes(k.slice(12, -1)));
 
@@ -194,18 +262,23 @@ export function montarEmail(campos, path) {
   resumo.push(['Situação', resultados.length ? (concluido ? 'Concluído' : 'Incompleto') : 'Sem resultado']);
 
   const corpo = [];
+  let base = 'https://www.vitallmente.com.br';
+  try { base = new URL(campos.referrer).origin; } catch {}
   for (const [id, o] of resultados) {
     const limpo = structuredClone(o);
     if (ehObj(limpo.status) && 'respondidas' in limpo.status) delete limpo.status; // já está no resumo
     for (const k of ['total_respondidas', 'teste_concluido']) delete limpo[k];
     semRepetir(limpo, naFaixa); // o que já está na faixa de resumo não se repete abaixo
     if (PARTES[id]) corpo.push(`<h2 style="margin:36px 0 0;font:bold 19px ${SERIF};color:${C.tinta}">${esc(PARTES[id])}</h2>`);
+    // tarefas visuais: cada linha/tarefa mostra figuras + contagem; a tabela de desempenho por linha sai (seria repetida)
+    const visual = TAREFAS[path] ? tarefasVisuais(path, detalhe, base, id, o) : [];
+    if (visual.length) { for (const k of Object.keys(TAREFAS[path].itens)) delete limpo[k]; corpo.push(...visual); }
     secoes(limpo, mapa, '', corpo);
   }
   for (const [k, v] of textosLivres) corpo.push(titulo(termo(k.slice(12, -1), mapa)) + tabelaIndicadores([[k, v]]));
   if (semResposta.length) {
     corpo.push(titulo('Perguntas sem resposta', `${semResposta.length}`) +
-      tabela('', semResposta.map(k => `<tr>${td(esc(termo(k, mapa)), `color:${C.alerta}`)}</tr>`)));
+      tabela('', semResposta.map(k => `<tr>${`<td class="c" style="color:${C.alerta}">${esc(termo(k, mapa))}</td>`}</tr>`)));
   }
   if (!resultados.length && !textosLivres.length) {
     corpo.push(`<p style="margin:28px 0;padding:14px 16px;background:${C.nevoa};border-left:3px solid ${C.alerta};font:14px ${SANS};color:${C.tinta}">O paciente enviou o formulário sem respostas do teste. Confirme com ele se o teste foi feito até o fim.</p>`);
@@ -217,7 +290,7 @@ export function montarEmail(campos, path) {
 <div style="margin-top:4px;font:bold 20px ${SANS};color:${r === 'Situação' && v !== 'Concluído' ? C.alerta : C.tinta}">${esc(v)}</div></td>`;
   const paciente = [['Paciente', nome], ['CPF', f('cpf') || '—'], ['Celular', f('cel') || '—'], ['Termos de uso', f('accept') ? 'Aceitos' : 'Não aceitos']];
 
-  const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+  const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${CSS}</style></head>
 <body style="margin:0;padding:0;background:${C.nevoa}">
 <table width="100%" cellspacing="0" cellpadding="0" style="background:${C.nevoa}"><tr><td align="center" style="padding:24px 10px">
 <table width="680" cellspacing="0" cellpadding="0" style="max-width:680px;width:100%;background:#fff;border:1px solid ${C.regua};border-radius:8px;overflow:hidden">

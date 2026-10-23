@@ -44,12 +44,27 @@ for (const arq of fs.readdirSync(dir).sort()) {
     if ('escolhida' in d && (d.escolhida === d.correta) !== (c.acertos === 1)) erros.push(`escolha diverge em ${k}`);
     for (const x of [...(d.marcadas_certas || []), ...(d.placas_marcadas || [])]) if (!e.html.includes(String(x))) erros.push(`marcação ausente ${k}:${x}`);
   }
+  // 1c) limite do Gmail (~102 KB corta a mensagem) e figuras das tarefas existem no site
+  const kb = Buffer.byteLength(e.html) / 1024;
+  if (kb > 95) erros.push(`e-mail com ${kb.toFixed(0)} KB (Gmail corta acima de ~102 KB)`);
+  for (const [, src] of e.html.matchAll(/<img[^>]+src="https?:\/\/[^/"]+(\/[^"]+)"/g))
+    if (!fs.existsSync(new URL(`../site${decodeURI(src)}`, import.meta.url))) erros.push(`figura inexistente: ${src}`);
+  // 1d) marcações visuais batem com a contagem do teste (verde = acertos, vermelho = erros, tracejado = omissões)
+  if (Object.keys(det).length && !/escolhida/.test(JSON.stringify(det))) {
+    const soma = c => Object.entries(contagens).filter(([k]) => k in det).reduce((a, [, v]) => a + (v[c] || 0), 0);
+    const conta = cls => (e.html.match(new RegExp(`<img class="f ${cls}"`, "g")) || []).length;
+    const temAlvos = !/tr-grid|placas/.test(Object.keys(det).join()) ;
+    if (conta('fc') !== soma('acertos') || conta('fe') !== soma('erros') || (temAlvos && conta('fo') !== soma('omissoes')))
+      erros.push(`marcações visuais ${conta('fc')}/${conta('fe')}/${conta('fo')} ≠ contagem ${soma('acertos')}/${soma('erros')}/${soma('omissoes')}`);
+  }
+  if (/escolhida/.test(JSON.stringify(det)) && (e.html.match(/Escolhida/g) || []).length !== Object.keys(det).length)
+    erros.push('raciocínio: nem toda tarefa mostra a opção escolhida');
   // 2) nada técnico visível
   const tecnicos = visivel(e.html).filter(t => TECNICO.test(t));
   if (tecnicos.length) erros.push(`termos técnicos: ${[...new Set(tecnicos)].slice(0, 5).join(' | ')}`);
   if (/\{"|\[object/.test(e.text)) erros.push('texto simples com JSON');
   if (erros.length) falhas++;
   const resumo = (e.html.match(/Itens respondidos<\/div>\s*<div[^>]*>([^<]+)/) || [])[1] || '-';
-  console.log(`${erros.length ? 'FALHA' : 'OK   '} ${path.padEnd(44)} respostas conferidas=${String(conferidas).padStart(3)} respondidos=${resumo.padEnd(9)} ${erros.slice(0, 3).join('; ')}`);
+  console.log(`${erros.length ? 'FALHA' : 'OK   '} ${path.padEnd(44)} ${String(Math.round(kb)).padStart(3)} KB respostas=${String(conferidas).padStart(3)} respondidos=${resumo.padEnd(9)} ${erros.slice(0, 3).join('; ')}`);
 }
 process.exit(falhas ? 1 : 0);

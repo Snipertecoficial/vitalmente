@@ -136,6 +136,8 @@ def main():
             data = rewrite(data.decode("utf-8")).encode("utf-8")
         save(path, data)
     save("vitallmente-detalhe.js", (ROOT / "tools" / "detalhe-tarefas.js").read_bytes())
+    for fig in sorted((ROOT / "tools" / "relatorio-figuras").glob("*.png")):  # figuras das tarefas para o e-mail
+        save(f"relatorio-figuras/{fig.name}", fig.read_bytes())
     for name in SEO_FILES:
         try:
             txt = fetch(f"{ORIGIN}/{name}").decode("utf-8")
