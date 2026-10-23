@@ -63,21 +63,76 @@ export function resposta(campos) {
 }
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const COR = '#5E4352'; // --e-global-color-primary do site
+const PACIENTE = ['name', 'cpf', 'cel', 'accept'];
+
+// "total_respondidas" → "Total respondidas"; true/false → Sim/Não
+const rotulo = k => (k.charAt(0).toUpperCase() + k.slice(1)).replace(/_/g, ' ');
+const valor = v => (v === true ? 'Sim' : v === false ? 'Não' : v === null || v === '' ? '—' : String(v));
+const ehObjeto = v => v && typeof v === 'object';
+const json = v => { try { const o = JSON.parse(v); return ehObjeto(o) ? o : null; } catch { return null; } };
+
+const linha = (k, v, destaque) =>
+  `<tr><td style="padding:8px 12px;border-bottom:1px solid #eee;color:#7A7A7A;width:40%;vertical-align:top">${esc(k)}</td>` +
+  `<td style="padding:8px 12px;border-bottom:1px solid #eee;color:#343536;${destaque ? 'font-weight:bold;' : ''}white-space:pre-wrap">${esc(v)}</td></tr>`;
+const tabela = rows => `<table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;font-size:14px">${rows.join('')}</table>`;
+const secao = (titulo, corpo) =>
+  `<h3 style="margin:28px 0 8px;font-size:15px;color:${COR};text-transform:uppercase;letter-spacing:.5px">${esc(titulo)}</h3>${corpo}`;
+
+// Resultado em JSON: campos simples viram o resumo (em destaque); objetos aninhados viram tabelas próprias.
+function resultadoHtml(obj) {
+  const simples = Object.entries(obj).filter(([, v]) => !ehObjeto(v));
+  const blocos = Object.entries(obj).filter(([kk, v]) => ehObjeto(v) && !/^\d+$/.test(kk));
+  const numerados = Object.entries(obj).filter(([kk, v]) => ehObjeto(v) && /^\d+$/.test(kk)); // ex.: linhas do teste de atenção
+  let html = simples.length ? secao('Resumo do resultado', tabela(simples.map(([k, v]) => linha(rotulo(k), valor(v), true)))) : '';
+  if (numerados.length) html += secao('Detalhamento', tabela(numerados.map(([kk, v]) =>
+    linha(`Item ${kk}`, Object.entries(v).map(([a, b]) => `${rotulo(a)}: ${ehObjeto(b) ? JSON.stringify(b) : valor(b)}`).join(' · ')))));
+  for (const [k, v] of blocos) {
+    const rows = Object.entries(v).map(([kk, vv]) =>
+      linha(rotulo(kk), ehObjeto(vv) ? Object.entries(vv).map(([a, b]) => `${rotulo(a)}: ${valor(b)}`).join(' · ') : valor(vv)));
+    html += secao(rotulo(k), tabela(rows.length ? rows : [linha('—', 'sem respostas')]));
+  }
+  return html;
+}
 
 export function montarEmail(campos) {
   const path = caminho(campos);
   const teste = TESTES[path] ? `Teste ${TESTES[path].replace(/^de /, '')}` : (campos.referer_title || path);
-  const linhas = Object.entries(campos)
-    .filter(([k]) => k.startsWith('form_fields['))
-    .map(([k, v]) => { const id = k.slice(12, -1).replace(/\]\[.*$/, ''); return [ROTULOS[id] || id, v]; });
-  linhas.push(['Página', campos.referrer || path], ['Enviado em', new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })]);
-  const nome = campos['form_fields[name]'] || 'sem nome';
-  return {
-    subject: `${teste} — ${nome}`,
-    text: linhas.map(([k, v]) => `${k}:\n${v}`).join('\n\n'),
-    html: `<h2>${esc(teste)}</h2><table cellpadding="6" border="1" style="border-collapse:collapse">${linhas
-      .map(([k, v]) => `<tr><th align="left" valign="top">${esc(k)}</th><td style="white-space:pre-wrap">${esc(v)}</td></tr>`).join('')}</table>`,
-  };
+  const nome = campos['form_fields[name]'] || 'Paciente sem nome';
+  const quando = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' });
+  const fields = Object.entries(campos).filter(([k]) => k.startsWith('form_fields[')).map(([k, v]) => [k.slice(12, -1).replace(/\]\[.*$/, ''), v]);
+  const pac = PACIENTE.filter(id => fields.some(([f]) => f === id))
+    .map(id => { const v = fields.find(([f]) => f === id)[1]; return [ROTULOS[id], id === 'accept' ? (v ? 'Sim' : 'Não') : v]; });
+  const outros = fields.filter(([f]) => !PACIENTE.includes(f) && fields.find(([g]) => g === f)[1] !== '');
+
+  let resultado = '', brutos = [];
+  for (const [id, v] of outros) {
+    const o = json(v);
+    if (o) { resultado += resultadoHtml(o); brutos.push([id, JSON.stringify(o, null, 2)]); }
+    else resultado += secao(rotulo(id), tabela([linha(rotulo(id), v)]));
+  }
+  if (!resultado) resultado = secao('Resultado', `<p style="color:#7A7A7A">Nenhum resultado foi preenchido neste envio.</p>`);
+
+  const html = `<!doctype html><html><body style="margin:0;background:#f4f1f3;font-family:Arial,Helvetica,sans-serif">
+<table width="100%" cellspacing="0" cellpadding="0" style="background:#f4f1f3;padding:24px 0"><tr><td align="center">
+<table width="640" cellspacing="0" cellpadding="0" style="max-width:640px;width:100%;background:#fff;border-radius:8px;overflow:hidden">
+<tr><td style="background:${COR};padding:24px 28px;color:#fff">
+<div style="font-family:Georgia,serif;font-size:26px">Vitallmente</div>
+<div style="font-size:12px;letter-spacing:2px;text-transform:uppercase;opacity:.85">Clínica de Saúde Mental</div></td></tr>
+<tr><td style="padding:24px 28px">
+<div style="font-size:12px;color:#7A7A7A;text-transform:uppercase;letter-spacing:1px">Novo teste recebido · ${esc(quando)}</div>
+<h1 style="margin:6px 0 0;font-size:22px;color:#343536">${esc(teste)}</h1>
+<div style="font-size:16px;color:${COR};margin-top:4px">${esc(nome)}</div>
+${secao('Dados do paciente', tabela(pac.map(([k, v]) => linha(k, v))))}
+${resultado}
+${brutos.map(([id, j]) => secao(`Dados brutos (${id})`, `<pre style="background:#f7f7f7;border:1px solid #eee;padding:12px;font-size:12px;white-space:pre-wrap;word-break:break-all">${esc(j)}</pre>`)).join('')}
+</td></tr>
+<tr><td style="padding:16px 28px;background:#faf8f9;color:#7A7A7A;font-size:12px">Enviado automaticamente pelo site · <a href="${esc(campos.referrer || '')}" style="color:${COR}">${esc(path)}</a><br>Conteúdo confidencial: dados de saúde do paciente.</td></tr>
+</table></td></tr></table></body></html>`;
+
+  const text = [`${teste} — ${nome}`, `Recebido em ${quando}`, '', ...pac.map(([k, v]) => `${k}: ${v}`), '',
+    ...outros.map(([id, v]) => `${rotulo(id)}:\n${json(v) ? JSON.stringify(json(v), null, 2) : v}`), '', `Página: ${campos.referrer || path}`].join('\n');
+  return { subject: `[Vitallmente] ${teste} — ${nome}`, html, text };
 }
 
 async function enviarEmail(email) {
