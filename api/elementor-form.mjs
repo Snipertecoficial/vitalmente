@@ -160,5 +160,6 @@ export default async function handler(req, res) {
   } else {
     console.warn('RESEND_API_KEY ausente: envio só simulado');
   }
+  res.setHeader('x-envio', process.env.RESEND_API_KEY ? 'email' : 'simulado'); // conferência do modo em produção
   res.status(200).json(out);
 }
