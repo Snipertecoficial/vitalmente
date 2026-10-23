@@ -65,6 +65,9 @@ const extrair = () => {
       else if (e.type === 'radio' || e.type === 'checkbox') opcoes[e.value] = textoOpcao(e);
     }
     out[nome] = Object.keys(opcoes).length ? { p: pergunta, o: opcoes } : { p: pergunta };
+    // seção da página onde a pergunta está (ex.: Anamnese "Identificação"), para agrupar no e-mail
+    const secTit = els[0].closest('[class*="section"]:not([data-id])')?.querySelector('[class*="section-title"]');
+    if (secTit && limpa(secTit.innerText)) out[nome].g = limpa(secTit.innerText);
   }
   // cartões cujo código vira chave do resultado sem ser nome de campo (ex.: ADI-R q2 = q2_yrs + q2_mths)
   f.querySelectorAll('[data-id],[data-campo-id]').forEach(card => {
@@ -105,7 +108,8 @@ const preencher = () => {
       grupo[h % grupo.length].click();
     }
     else if (e.tagName === 'SELECT' && e.options.length > 1) e.value = e.options[1].value;
-    else if (['text', 'number', 'textarea', 'TEXTAREA'].includes(e.type || e.tagName)) e.value = '1';
+    else if (e.type === 'number') e.value = '1';
+    else if (['text', 'textarea', 'TEXTAREA'].includes(e.type || e.tagName)) e.value = 'Resposta de exemplo escrita pelo paciente';
     ['input', 'change'].forEach(t => e.dispatchEvent(new Event(t, { bubbles: true })));
   });
   return [...f.querySelectorAll('input[name^="form_fields["],textarea[name^="form_fields["]')].map(e => e.value).filter(v => v.startsWith('{'));

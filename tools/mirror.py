@@ -55,6 +55,18 @@ def rewrite_html(text):
     return "".join(out) + rewrite(text[last:])
 
 
+# Tarefas de clique cujo envio original só traz contagens: acrescenta o registro do que foi marcado.
+DETALHE_PAGINAS = {"teste-memoria-operacional", "teste-raciocinio", "teste-atencao"}
+DETALHE_TAG = '<script src="/vitallmente-detalhe.js" defer></script>'
+
+
+def injetar_detalhe(html, path):
+    if path.strip("/") not in DETALHE_PAGINAS or DETALHE_TAG in html:
+        return html
+    i = html.rfind("</body>")  # o último: o HTML original tem um </body> solto dentro de um widget do formulário
+    return html[:i] + f"{DETALHE_TAG}\n" + html[i:]
+
+
 def personalizar(text):
     for old, new in TROCAS.items():
         text = text.replace(old, new)
@@ -105,7 +117,7 @@ def main():
         raw = fetch(url).decode("utf-8")
         (RAW / f"{path.strip('/') or 'home'}.html").write_text(raw, encoding="utf-8")
         queue |= assets_in(raw)
-        save(page_file(path), personalizar(WP_HEAD.sub("", rewrite_html(raw))).encode("utf-8"))
+        save(page_file(path), injetar_detalhe(personalizar(WP_HEAD.sub("", rewrite_html(raw))), path).encode("utf-8"))
     done = set()
     while queue:
         path = queue.pop()
@@ -123,6 +135,7 @@ def main():
         if path.endswith((".css", ".js")) and b"vitallmente.com.br" in data:
             data = rewrite(data.decode("utf-8")).encode("utf-8")
         save(path, data)
+    save("vitallmente-detalhe.js", (ROOT / "tools" / "detalhe-tarefas.js").read_bytes())
     for name in SEO_FILES:
         try:
             txt = fetch(f"{ORIGIN}/{name}").decode("utf-8")

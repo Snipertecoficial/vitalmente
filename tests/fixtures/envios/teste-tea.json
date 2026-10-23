@@ -35,7 +35,7 @@
  "q_26": "1",
  "q_27": "2",
  "q_28": "3",
- "g-recaptcha-response": "1",
+ "g-recaptcha-response": "Resposta de exemplo escrita pelo paciente",
  "form_fields[field_5bb3790]": "tea",
  "action": "elementor_pro_forms_send_form",
  "referrer": "http://localhost:8081/teste-tea/"

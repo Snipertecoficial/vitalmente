@@ -21,7 +21,7 @@
  "ee12": "1",
  "ee13": "2",
  "ee14": "3",
- "g-recaptcha-response": "1",
+ "g-recaptcha-response": "Resposta de exemplo escrita pelo paciente",
  "form_fields[field_5bb3790]": "experiencias-emocionais",
  "action": "elementor_pro_forms_send_form",
  "referrer": "http://localhost:8081/experiencia-emocionais/"

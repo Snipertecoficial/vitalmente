@@ -32,6 +32,18 @@ for (const arq of fs.readdirSync(dir).sort()) {
     const alt = mapa[k].o?.[String(v)];
     if (alt && !e.html.includes(esc(alt))) erros.push(`alternativa ausente: ${k}=${v}`);
   }
+  // 1b) detalhe das tarefas bate com a contagem feita pelo próprio teste
+  const det = JSON.parse(campos['form_fields[r_detalhe]'] || '{}');
+  const contagens = {};
+  Object.entries(campos).filter(([k, v]) => k.startsWith('form_fields[r_') && k !== 'form_fields[r_detalhe]' && v.startsWith('{')).forEach(([, v]) => Object.assign(contagens, JSON.parse(v)));
+  for (const [k, d] of Object.entries(det)) {
+    const c = contagens[k];
+    if (!c) { erros.push(`detalhe sem contagem: ${k}`); continue; }
+    if (d.marcadas_certas && (d.marcadas_certas.length !== c.acertos || d.marcadas_erradas.length !== c.erros || d.alvos_nao_marcados.length !== c.omissoes))
+      erros.push(`detalhe diverge da contagem em ${k}`);
+    if ('escolhida' in d && (d.escolhida === d.correta) !== (c.acertos === 1)) erros.push(`escolha diverge em ${k}`);
+    for (const x of [...(d.marcadas_certas || []), ...(d.placas_marcadas || [])]) if (!e.html.includes(String(x))) erros.push(`marcação ausente ${k}:${x}`);
+  }
   // 2) nada técnico visível
   const tecnicos = visivel(e.html).filter(t => TECNICO.test(t));
   if (tecnicos.length) erros.push(`termos técnicos: ${[...new Set(tecnicos)].slice(0, 5).join(' | ')}`);

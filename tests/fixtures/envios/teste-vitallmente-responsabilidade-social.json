@@ -72,7 +72,7 @@
  "srs_63": "0",
  "srs_64": "1",
  "srs_65": "2",
- "g-recaptcha-response": "1",
+ "g-recaptcha-response": "Resposta de exemplo escrita pelo paciente",
  "form_fields[field_5bb3790]": "social",
  "action": "elementor_pro_forms_send_form",
  "referrer": "http://localhost:8081/teste-vitallmente-responsabilidade-social/"

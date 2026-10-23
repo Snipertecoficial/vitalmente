@@ -27,7 +27,7 @@
  "bhs_18": "1",
  "bhs_19": "0",
  "bhs_20": "0",
- "g-recaptcha-response": "1",
+ "g-recaptcha-response": "Resposta de exemplo escrita pelo paciente",
  "form_fields[field_5bb3790]": "bhs",
  "action": "elementor_pro_forms_send_form",
  "referrer": "http://localhost:8081/teste-gravidade-de-desesperanca/"

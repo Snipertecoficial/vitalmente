@@ -49,6 +49,9 @@ const TERMOS = {
   deveria_apertar: 'Deveria responder', apertou: 'Respondeu', correto: 'Correto',
   Marcos_Desenvolvimento: 'Marcos do desenvolvimento', Perguntas_Familia: 'Perguntas sobre a família',
   Preocupacoes_Pais: 'Preocupações dos pais', Sintomas_Pediatricos: 'Sintomas pediátricos',
+  // detalhe registrado nas tarefas de clique (tools/detalhe-tarefas.js)
+  placas_marcadas: 'Placas marcadas', marcadas: 'Posições marcadas', escolhida: 'Opção escolhida', correta: 'Opção correta',
+  marcadas_certas: 'Marcadas certas (posição)', marcadas_erradas: 'Marcadas erradas (posição)', alvos_nao_marcados: 'Alvos não marcados (posição)',
 };
 // Testes com mais de um campo de resultado (Atenção tem três partes).
 const PARTES = { r_star_test: 'Parte 1 · Estrelas', r_oct_test: 'Parte 2 · Octógonos', r_tr_test: 'Parte 3 · Triângulos' };
@@ -75,7 +78,7 @@ function formata(k, v) {
   if (v === true) return 'Sim';
   if (v === false) return 'Não';
   if (v === null || v === undefined || v === '') return '—';
-  if (Array.isArray(v)) return v.map(x => formata(k, x)).join(', ');
+  if (Array.isArray(v)) return v.length ? v.map(x => formata(k, x)).join(', ') : '—';
   if (typeof v === 'number' && /acuracia/.test(k)) return `${Math.round(v * 100)}%`;
   if (typeof v === 'number' && /_ms$/.test(k)) return `${v.toLocaleString('pt-BR')} ms`;
   if (typeof v === 'number' && /segundos/.test(k)) return `${v} s`;
@@ -118,8 +121,10 @@ function matriz(linhas) {
   const ents = Array.isArray(linhas) ? linhas.map((v, i) => [String(i + 1), v]) : Object.entries(linhas);
   const cols = Object.keys(ents[0][1]);
   const rotuloLinha = !Array.isArray(linhas);
+  const nota = cols.some(c => /marcadas|alvos_nao/.test(c) && c !== 'placas_marcadas')
+    ? `<p style="margin:6px 0 0;font:12px ${SANS};color:${C.grafite}">Posição = ordem da figura na linha, da esquerda para a direita (1ª, 2ª, 3ª…).</p>` : '';
   return tabela((rotuloLinha ? th('') : '') + cols.map(c => th(termo(c), 'center')).join(''),
-    ents.map(([k, v], i) => `<tr${i % 2 ? ` style="background:#FBFAFB"` : ''}>${rotuloLinha ? td(esc(termo(k)), `color:${C.grafite}`) : ''}${cols.map(c => td(esc(formata(c, v[c])), 'text-align:center')).join('')}</tr>`));
+    ents.map(([k, v], i) => `<tr${i % 2 ? ` style="background:#FBFAFB"` : ''}>${rotuloLinha ? td(esc(termo(k)), `color:${C.grafite};white-space:nowrap`) : ''}${cols.map(c => td(esc(formata(c, v[c])), 'text-align:center')).join('')}</tr>`)) + nota;
 }
 const ehMatriz = v => {
   const xs = Array.isArray(v) ? v : ehObj(v) ? Object.values(v) : [];
@@ -133,7 +138,10 @@ function secoes(obj, mapa, nome, out) {
   const ents = Object.entries(obj);
   const respostas = ents.filter(([k, v]) => ehFolha(v) && mapa[k] && !mapa[k].s);
   const metricas = ents.filter(([k, v]) => ehFolha(v) && !(mapa[k] && !mapa[k].s));
-  if (respostas.length) out.push(titulo(nome || 'Respostas', `${respostas.length} ${respostas.length === 1 ? 'item' : 'itens'}`) + tabelaRespostas(mapa, respostas));
+  const porSecao = !nome && respostas.some(([k]) => mapa[k].g)
+    ? respostas.reduce((acc, it) => { const g = mapa[it[0]].g || 'Respostas'; (acc[g] ||= []).push(it); return acc; }, {})
+    : (respostas.length ? { [nome || 'Respostas']: respostas } : {});
+  for (const [g, itens] of Object.entries(porSecao)) out.push(titulo(g, `${itens.length} ${itens.length === 1 ? 'item' : 'itens'}`) + tabelaRespostas(mapa, itens));
   if (metricas.length) out.push(titulo(!nome ? 'Indicadores' : respostas.length ? `${nome} · indicadores` : nome) + tabelaIndicadores(metricas));
   const filhos = ents.filter(([, v]) => !ehFolha(v));
   // irmãos com as mesmas medidas (linhas da Atenção, tarefas do Raciocínio) → uma tabela comparativa
@@ -164,11 +172,14 @@ export function montarEmail(campos, path) {
   const nome = campos['form_fields[name]'] || 'Paciente sem nome';
   const quando = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' });
   const f = id => campos[`form_fields[${id}]`] ?? '';
+  const detalhe = json(campos['form_fields[r_detalhe]']) || {};
   const resultados = Object.entries(campos)
-    .filter(([k, v]) => k.startsWith('form_fields[') && json(v))
+    .filter(([k, v]) => k.startsWith('form_fields[') && k !== 'form_fields[r_detalhe]' && json(v))
     .map(([k, v]) => [k.slice(12, -1), json(v)]);
+  // o que foi marcado em cada linha/tarefa vira colunas extras da tabela de desempenho
+  for (const [, o] of resultados) for (const [k, extra] of Object.entries(detalhe)) if (ehObj(o[k])) Object.assign(o[k], extra);
   const textosLivres = Object.entries(campos)
-    .filter(([k, v]) => k.startsWith('form_fields[') && v !== '' && !json(v) && !['name', 'cpf', 'cel', 'accept', 'field_5bb3790'].includes(k.slice(12, -1)));
+    .filter(([k, v]) => k.startsWith('form_fields[') && v !== '' && !json(v) && !['name', 'cpf', 'cel', 'accept', 'field_5bb3790', 'r_detalhe'].includes(k.slice(12, -1)));
 
   // Resumo: pontuação/indicadores principais + itens respondidos X de Y + situação.
   const todas = resultados.reduce((acc, [, o]) => folhas(o, acc), {});

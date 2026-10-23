@@ -35,4 +35,8 @@ assert m.personalizar('href="https://api.whatsapp.com/send?phone=5511950698711"'
 assert m.personalizar("https://wa.me//5511945443760?text=x") == "https://wa.me//5511917738711?text=x"
 assert m.personalizar(">11 91399-8711<") == ">11 91773-8711<" and m.personalizar(">11 97290 8711<") == ">(11) 91773-8711<"
 assert m.personalizar("5511917738711") == "5511917738711"
+assert m.injetar_detalhe("<body>x</body>", "/teste-atencao/") == '<body>x<script src="/vitallmente-detalhe.js" defer></script>\n</body>'
+assert m.injetar_detalhe("<body>x</body>", "/teste-tdah/") == "<body>x</body>"
+assert m.injetar_detalhe(m.injetar_detalhe("<body></body>", "/teste-raciocinio/"), "/teste-raciocinio/").count("vitallmente-detalhe") == 1
+assert m.injetar_detalhe("<form></body></form></body>", "/teste-atencao/") == '<form></body></form><script src="/vitallmente-detalhe.js" defer></script>\n</body>'
 print("test_mirror OK")

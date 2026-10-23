@@ -7,6 +7,15 @@ import { blockTracking, FORM_PATHS } from './lib.mjs';
 import { lerCampos, montarEmail } from '../api/elementor-form.mjs';
 const src = fs.readFileSync('extrair_perguntas.mjs', 'utf8');
 const preencher = eval(src.match(/const preencher = (\(\) => \{[\s\S]*?\n\});/)[1]);
+// tarefas de clique: clica em metade dos itens para gerar um resultado real (com o detalhe registrado)
+const jogar = () => {
+  const f = document.querySelector('form.elementor-form');
+  f.querySelectorAll('.e-form__step, .elementor-hidden').forEach(e => e.classList.remove('elementor-hidden'));
+  [...f.querySelectorAll('img, [class*="item"], [class*="opcao"], [class*="option"], [class*="card"], button:not([type=submit])')]
+    .filter(e => !e.closest('.e-form__buttons') && !e.closest('.elementor-field-type-submit'))
+    .forEach((e, i) => { if (i % 2 === 0) e.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+};
+const TAREFAS = ['/teste-memoria-operacional/', '/teste-raciocinio/', '/teste-atencao/'];
 const b = await chromium.launch(); const ctx = await b.newContext(); await blockTracking(ctx);
 let corpo = null;
 await ctx.route('**/wp-admin/admin-ajax.php', async r => { corpo = await lerCampos(r.request().postDataBuffer(), r.request().headers()['content-type']); return r.fulfill({ json: { success: true, data: { message: '', data: {} } } }); });
@@ -16,7 +25,8 @@ fs.mkdirSync('../_scratch/envios', { recursive: true });
 for (const p of FORM_PATHS) {
   corpo = null;
   await page.goto('http://localhost:8081' + p, { waitUntil: 'networkidle' });
-  await page.evaluate(preencher);
+  await page.evaluate(TAREFAS.includes(p) ? jogar : preencher);
+  await page.waitForTimeout(300);
   await page.evaluate(() => { const f = document.querySelector('form.elementor-form'); f.querySelector('[name="form_fields[name]"]').value = 'Paciente Exemplo'; jQuery(f).trigger('submit'); });
   for (let i = 0; i < 50 && !corpo; i++) await page.waitForTimeout(100);
   fs.writeFileSync(`../_scratch/envios/${p.replace(/\//g, '')}.json`, JSON.stringify(corpo, null, 1));

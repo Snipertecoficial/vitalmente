@@ -38,7 +38,7 @@
  "esavi_29": "3",
  "esavi_30": "0",
  "esavi_31": "1",
- "g-recaptcha-response": "1",
+ "g-recaptcha-response": "Resposta de exemplo escrita pelo paciente",
  "form_fields[field_5bb3790]": "impulsividade",
  "action": "elementor_pro_forms_send_form",
  "referrer": "http://localhost:8081/teste-impulsividade/"
