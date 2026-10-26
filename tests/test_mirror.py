@@ -39,4 +39,7 @@ assert m.injetar_detalhe("<body>x</body>", "/teste-atencao/") == '<body>x<script
 assert m.injetar_detalhe("<body>x</body>", "/teste-tdah/") == "<body>x</body>"
 assert m.injetar_detalhe(m.injetar_detalhe("<body></body>", "/teste-raciocinio/"), "/teste-raciocinio/").count("vitallmente-detalhe") == 1
 assert m.injetar_detalhe("<form></body></form></body>", "/teste-atencao/") == '<form></body></form><script src="/vitallmente-detalhe.js" defer></script>\n</body>'
+g = m.injetar_google_ads("<html><head><title>x</title></head></html>")
+assert g.startswith("<html><head>\n<!-- Google tag (gtag.js) -->") and g.count("AW-11341904031") == 2
+assert m.injetar_google_ads(g) == g  # não duplica
 print("test_mirror OK")

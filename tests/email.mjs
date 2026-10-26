@@ -8,12 +8,19 @@ import { lerCampos, montarEmail } from '../api/elementor-form.mjs';
 const src = fs.readFileSync('extrair_perguntas.mjs', 'utf8');
 const preencher = eval(src.match(/const preencher = (\(\) => \{[\s\S]*?\n\});/)[1]);
 // tarefas de clique: clica em metade dos itens para gerar um resultado real (com o detalhe registrado)
-const jogar = () => {
+// etapa por etapa, com pausas, para o envio levar tempos reais (tools/detalhe-tarefas.js)
+const jogar = async () => {
   const f = document.querySelector('form.elementor-form');
-  f.querySelectorAll('.e-form__step, .elementor-hidden').forEach(e => e.classList.remove('elementor-hidden'));
-  [...f.querySelectorAll('img, [class*="item"], [class*="opcao"], [class*="option"], [class*="card"], button:not([type=submit])')]
-    .filter(e => !e.closest('.e-form__buttons') && !e.closest('.elementor-field-type-submit'))
-    .forEach((e, i) => { if (i % 2 === 0) e.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+  const espera = ms => new Promise(r => setTimeout(r, ms));
+  const etapas = [...f.querySelectorAll('.e-form__step')];
+  for (const [i, etapa] of etapas.entries()) {
+    etapas.forEach((s, k) => s.classList.toggle('elementor-hidden', k !== i));
+    await espera(250);
+    const itens = [...etapa.querySelectorAll('img, [class*="item"], [class*="opcao"], [class*="option"], [class*="card"]')]
+      .filter(e => !e.closest('.e-form__buttons') && !e.closest('.elementor-field-type-submit'));
+    for (const [k, e] of itens.entries()) if (k % 2 === 0) { e.dispatchEvent(new MouseEvent('click', { bubbles: true })); if (k % 10 === 0) await espera(15); }
+  }
+  etapas.forEach(e => e.classList.remove('elementor-hidden'));
 };
 const TAREFAS = ['/teste-memoria-operacional/', '/teste-raciocinio/', '/teste-atencao/'];
 const b = await chromium.launch(); const ctx = await b.newContext(); await blockTracking(ctx);

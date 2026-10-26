@@ -33,7 +33,9 @@ for (const arq of fs.readdirSync(dir).sort()) {
     if (alt && !e.html.includes(esc(alt))) erros.push(`alternativa ausente: ${k}=${v}`);
   }
   // 1b) detalhe das tarefas bate com a contagem feita pelo próprio teste
-  const det = JSON.parse(campos['form_fields[r_detalhe]'] || '{}');
+  const { _tempos: tempos, ...det } = JSON.parse(campos['form_fields[r_detalhe]'] || '{}');
+  // tempos registrados aparecem no e-mail (tempo total na faixa de resumo)
+  if (tempos?.total_s > 0 && !e.html.includes('Tempo nas tarefas')) erros.push('tempo total ausente');
   const contagens = {};
   Object.entries(campos).filter(([k, v]) => k.startsWith('form_fields[r_') && k !== 'form_fields[r_detalhe]' && v.startsWith('{')).forEach(([, v]) => Object.assign(contagens, JSON.parse(v)));
   for (const [k, d] of Object.entries(det)) {

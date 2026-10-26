@@ -55,6 +55,25 @@ def rewrite_html(text):
     return "".join(out) + rewrite(text[last:])
 
 
+# Tag global do Google Ads pedida pelo cliente (2026-10-26), logo após <head> em todas as páginas.
+# As conversões continuam nas tags do GTM-W7Q42XQ3 (mesma conta, com rótulos próprios).
+GOOGLE_ADS = """<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=AW-11341904031"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'AW-11341904031');
+</script>"""
+
+
+def injetar_google_ads(html):
+    if "AW-11341904031" in html or "<head>" not in html:
+        return html
+    return html.replace("<head>", "<head>\n" + GOOGLE_ADS, 1)
+
+
 # Tarefas de clique cujo envio original só traz contagens: acrescenta o registro do que foi marcado.
 DETALHE_PAGINAS = {"teste-memoria-operacional", "teste-raciocinio", "teste-atencao"}
 DETALHE_TAG = '<script src="/vitallmente-detalhe.js" defer></script>'
@@ -117,7 +136,7 @@ def main():
         raw = fetch(url).decode("utf-8")
         (RAW / f"{path.strip('/') or 'home'}.html").write_text(raw, encoding="utf-8")
         queue |= assets_in(raw)
-        save(page_file(path), injetar_detalhe(personalizar(WP_HEAD.sub("", rewrite_html(raw))), path).encode("utf-8"))
+        save(page_file(path), injetar_google_ads(injetar_detalhe(personalizar(WP_HEAD.sub("", rewrite_html(raw))), path)).encode("utf-8"))
     done = set()
     while queue:
         path = queue.pop()

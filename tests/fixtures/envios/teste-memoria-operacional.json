@@ -6,10 +6,10 @@
  "form_fields[name]": "Paciente Exemplo",
  "form_fields[cpf]": "",
  "form_fields[cel]": "",
- "form_fields[r_placas_test]": "{\"placas-grid-1\":{\"acertos\":8,\"erros\":4,\"omissoes\":6},\"placas-grid-2\":{\"acertos\":6,\"erros\":6,\"omissoes\":7},\"resultado_final\":{\"total_acertos\":14,\"total_erros\":10,\"total_omissoes\":13}}",
+ "form_fields[r_placas_test]": "{\"placas-grid-1\":{\"acertos\":8,\"erros\":4,\"omissoes\":6},\"placas-grid-2\":{\"acertos\":6,\"erros\":6,\"omissoes\":7},\"resultado_final\":{\"total_acertos\":14,\"total_erros\":10,\"total_omissoes\":13},\"performance_tempo\":{\"total_segundos\":0.2,\"estourou\":false}}",
  "g-recaptcha-response": "",
  "form_fields[field_5bb3790]": "memoria",
- "form_fields[r_detalhe]": "{\"placas-grid-1\":{\"placas_marcadas\":[1,3,5,7,9,11,13,15,17,19,21,23]},\"placas-grid-2\":{\"placas_marcadas\":[25,27,29,31,33,35,37,39,41,43,45,47]}}",
+ "form_fields[r_detalhe]": "{\"placas-grid-1\":{\"placas_marcadas\":[1,3,5,7,9,11,13,15,17,19,21,23],\"tempo_s\":0.1},\"placas-grid-2\":{\"placas_marcadas\":[25,27,29,31,33,35,37,39,41,43,45,47],\"tempo_s\":0},\"_tempos\":{\"total_s\":0.6,\"etapas\":[{\"etapa\":3,\"segundos\":0.3,\"grades\":[],\"memorizar\":true},{\"etapa\":5,\"segundos\":0.3,\"grades\":[\"placas-grid-1\",\"placas-grid-2\"],\"memorizar\":false}]}}",
  "action": "elementor_pro_forms_send_form",
  "referrer": "http://localhost:8081/teste-memoria-operacional/"
 }

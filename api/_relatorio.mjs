@@ -87,6 +87,13 @@ function formata(k, v) {
   return String(v);
 }
 
+// 8.4 → "8,4 s"; 102 → "1 min 42 s"
+export const duracao = s => (typeof s !== 'number' ? '' : s < 60 ? `${String(s).replace('.', ',')} s` : `${Math.floor(s / 60)} min ${Math.round(s % 60)} s`);
+const tempoEtapas = (detalhe, ids, memorizar = false) => {
+  const es = (detalhe._tempos?.etapas || []).filter(e => (memorizar ? e.memorizar : e.grades.some(g => ids.includes(g))));
+  return es.length ? es.reduce((a, e) => a + e.segundos, 0) : null;
+};
+
 // Alternativa escolhida: texto da alternativa + código (o valor que o profissional soma).
 function alternativa(mapa, k, v) {
   const o = mapa[k]?.o;
@@ -166,7 +173,8 @@ function tarefasVisuais(path, detalhe, base, campo, contagens) {
   if (!itens.length) return [];
   const out = [];
   if (t.tipo === 'escolha') { // Raciocínio: matriz + 6 opções
-    out.push(titulo('Respostas por tarefa', `${itens.length} tarefas`));
+    const tEsc = tempoEtapas(detalhe, itens.map(([id]) => id));
+    out.push(titulo('Respostas por tarefa', `${itens.length} tarefas${tEsc !== null ? ` · ${duracao(tEsc)} no total` : ''}`));
     for (const [id, meta] of itens) {
       const esc1 = detalhe[id].escolhida || '';
       const ok = esc1 && esc1 === meta.correta;
@@ -175,20 +183,25 @@ function tarefasVisuais(path, detalhe, base, campo, contagens) {
         const rot = op === esc1 && op === meta.correta ? '<b>Escolhida · correta</b>' : op === esc1 ? '<b>Escolhida</b>' : op === meta.correta ? 'Correta' : '&nbsp;';
         return `<div class="op"><img class="f ${cls}" src="${base}${src}" width="150" style="width:100%;max-width:150px;height:auto"><br>${rot}</div>`;
       }).join('');
-      out.push(`<div style="margin:22px 0 6px;font:bold 15px ${SANS};color:${C.tinta}">${esc(meta.titulo)} <span style="font:bold 13px ${SANS};color:${ok ? '#2E7D4F' : C.alerta}">· ${esc1 ? (ok ? 'acertou' : 'errou') : 'sem resposta'}</span></div>
+      const tr = detalhe[id].tempo_resposta_s;
+      out.push(`<div style="margin:22px 0 6px;font:bold 15px ${SANS};color:${C.tinta}">${esc(meta.titulo)} <span style="font:bold 13px ${SANS};color:${ok ? '#2E7D4F' : C.alerta}">· ${esc1 ? (ok ? 'acertou' : 'errou') : 'sem resposta'}</span>${typeof tr === 'number' ? `<span style="font:13px ${SANS};color:${C.grafite}"> · respondeu em ${duracao(tr)}</span>` : ''}</div>
 <div class="nt" style="margin:0 0 8px">${esc(meta.instrucao)}</div>
 <table class="t" cellspacing="0" cellpadding="0"><tr><td class="c m"><img src="${base}${meta.matriz}" width="260" style="width:100%;max-width:260px;height:auto;border:1px solid ${C.regua}"></td></tr><tr><td class="c">${ops}</td></tr></table>`);
     }
     return out;
   }
   // Atenção / Memória: uma faixa de figuras por questão/bloco, com a contagem do próprio teste
-  out.push(`<p class="nt" style="font-size:13px;color:${C.tinta}"><b>Instrução ao paciente:</b> ${esc(itens[0][1].instrucao)}</p>`);
+  const tParte = tempoEtapas(detalhe, itens.map(([id]) => id));
+  const tMem = itens[0][1].referencia ? tempoEtapas(detalhe, [], true) : null;
+  const tempos = [tMem !== null && `<b>Tempo memorizando:</b> ${duracao(tMem)}`, tParte !== null && `<b>Tempo ${tMem !== null ? 'respondendo' : 'nesta parte'}:</b> ${duracao(tParte)}`].filter(Boolean);
+  out.push(`<p class="nt" style="font-size:13px;color:${C.tinta}"><b>Instrução ao paciente:</b> ${esc(itens[0][1].instrucao)}${tempos.length ? `<br>${tempos.join(' &nbsp;·&nbsp; ')}` : ''}</p>`);
   const ref = itens[0][1].referencia; // Memória: a prancha que o paciente memorizou
   if (ref) out.push(`<div style="margin:16px 0 4px;font:bold 14px ${SANS};color:${C.tinta}">Placas apresentadas para memorizar</div><img src="${base}${ref}" width="560" style="width:100%;max-width:560px;height:auto;border:1px solid ${C.regua};border-radius:4px">`);
   for (const [id, meta] of itens) {
     const c = contagens[id] || {};
     const tam = meta.itens.length > 30 ? 26 : meta.numeros ? 52 : 34; // legível no Gmail; a faixa pode quebrar linha
-    out.push(`<div style="margin:18px 0 4px;font:bold 14px ${SANS};color:${C.tinta}">${esc(meta.titulo)} <span style="font:13px ${SANS};color:${C.grafite}">· ${c.acertos ?? '—'} acertos · ${c.erros ?? '—'} erros · ${c.omissoes ?? '—'} omissões</span></div>` + gradeVisual(meta, detalhe[id], base, tam));
+    const tl = detalhe[id].tempo_s;
+    out.push(`<div style="margin:18px 0 4px;font:bold 14px ${SANS};color:${C.tinta}">${esc(meta.titulo)} <span style="font:13px ${SANS};color:${C.grafite}">· ${c.acertos ?? '—'} acertos · ${c.erros ?? '—'} erros · ${c.omissoes ?? '—'} omissões${typeof tl === 'number' ? ` · 1º ao último clique: ${duracao(tl)}` : ''}</span></div>` + gradeVisual(meta, detalhe[id], base, tam));
   }
   out.push(LEGENDA);
   return out;
@@ -259,6 +272,7 @@ export function montarEmail(campos, path) {
   const resumo = naFaixa.map(k => [termo(k), formata(k, todas[k])]);
   if (esperadas.length) resumo.push(['Itens respondidos', `${respondidas.length} de ${esperadas.length}`]);
   const concluido = esperadas.length ? semResposta.length === 0 : (todas.concluido ?? todas.teste_concluido ?? resultados.length > 0);
+  if (typeof detalhe._tempos?.total_s === 'number' && detalhe._tempos.total_s > 0) resumo.push(['Tempo nas tarefas', duracao(detalhe._tempos.total_s)]);
   resumo.push(['Situação', resultados.length ? (concluido ? 'Concluído' : 'Incompleto') : 'Sem resultado']);
 
   const corpo = [];
