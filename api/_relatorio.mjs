@@ -247,7 +247,7 @@ const semRepetir = (o, chaves) => { for (const [k, v] of Object.entries(o)) { if
 // Achata o resultado em { chave: valor } para o resumo e a contagem de respondidas.
 const folhas = (o, acc = {}) => { for (const [k, v] of Object.entries(o)) ehObj(v) ? folhas(v, acc) : (acc[k] ??= v); return acc; };
 
-export function montarEmail(campos, path) {
+export function montarEmail(campos, path, baseImagens = '') {
   const mapa = PERGUNTAS[path] || {};
   const teste = NOMES_TESTE[path] || campos.referer_title || path;
   const nome = campos['form_fields[name]'] || 'Paciente sem nome';
@@ -276,8 +276,9 @@ export function montarEmail(campos, path) {
   resumo.push(['Situação', resultados.length ? (concluido ? 'Concluído' : 'Incompleto') : 'Sem resultado']);
 
   const corpo = [];
-  let base = 'https://www.vitallmente.com.br';
-  try { base = new URL(campos.referrer).origin; } catch {}
+  // figuras: do site que enviou, ou de onde elas estão hospedadas (envios vindos do WordPress)
+  let base = baseImagens || 'https://www.vitallmente.com.br';
+  if (!baseImagens) try { base = new URL(campos.referrer).origin; } catch {}
   for (const [id, o] of resultados) {
     const limpo = structuredClone(o);
     if (ehObj(limpo.status) && 'respondidas' in limpo.status) delete limpo.status; // já está no resumo

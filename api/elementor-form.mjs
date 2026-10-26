@@ -65,7 +65,7 @@ export function resposta(campos) {
   return { success: true, data: { message: '', data: { ...data, popup: { action: 'open', id: '1494' } } } };
 }
 
-async function enviarEmail(email) {
+export async function enviarEmail(email) {
   const r = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
