@@ -28,6 +28,8 @@ TROCAS = {
     "5511991148332": "5511917738711",
     "11 91399-8711": "11 91773-8711",
     "11 97290 8711": "(11) 91773-8711",  # formato mais largo: "11 91773 8711" cabia na linha do Instagram no mobile e mudava o layout
+    # fotos das avaliações do Google: sem referer, senão o Google bloqueia fora do domínio original (ERR_BLOCKED_BY_ORB)
+    'src="https://lh3.googleusercontent.com/': 'referrerpolicy="no-referrer" src="https://lh3.googleusercontent.com/',
 }
 
 

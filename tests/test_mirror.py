@@ -42,4 +42,5 @@ assert m.injetar_detalhe("<form></body></form></body>", "/teste-atencao/") == '<
 g = m.injetar_google_ads("<html><head><title>x</title></head></html>")
 assert g.startswith("<html><head>\n<!-- Google tag (gtag.js) -->") and g.count("AW-11341904031") == 2
 assert m.injetar_google_ads(g) == g  # não duplica
+assert m.personalizar('<img src="https://lh3.googleusercontent.com/a/x=s120">') == '<img referrerpolicy="no-referrer" src="https://lh3.googleusercontent.com/a/x=s120">'
 print("test_mirror OK")
